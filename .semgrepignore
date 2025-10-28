@@ -1,0 +1,22 @@
+# build and dependency folders
+node_modules/
+dist/
+coverage/
+build/
+out/
+lib/
+
+# test-related files
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/**
+**/__mocks__/**
+**/_unitTests/**
+**/scripts/**
+
+# docs
+**/*.md
+docs/
+README.md
+CHANGELOG.md
+

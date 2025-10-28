@@ -1,7 +1,7 @@
 {
-  "name": "@auth0/mdl-azure-keyvault-signer-example",
+  "name": "@aq/mdl-azure-keyvault-signer-example",
   "version": "1.0.0",
-  "description": "Example implementation of Azure Key Vault signer for @auth0/mdl",
+  "description": "Example implementation of Azure Key Vault signer for @aq/mdl",
   "private": true,
   "main": "src/AzureKeyVaultSigner.ts",
   "scripts": {

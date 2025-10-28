@@ -1,0 +1,143 @@
+# Node.js
+# Build a general Node.js project with npm.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+# Build.BuildNumber always increments
+# build-counter increments on re-builds
+# Setting
+variables:
+  major: 3
+  minor: 1
+  patch: $[counter(format('{0}.{1}',variables['major'],variables['minor']), 0)]
+  semVersion: $(major).$(minor).$(patch)
+
+# Azure devops variables are case insensitive
+name: $(Major).$(Minor).$(Patch)
+
+trigger:
+- main
+
+schedules:
+- cron: '0 0 1 * *'
+  displayName: Monthly cron build
+  branches:
+    include:
+    - main
+  always: true
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: $(node_version_spec)
+  displayName: 'Install Node.js'
+
+- script: |
+    echo "Running Gitleaks scan..."
+    docker pull zricethezav/gitleaks:latest
+    docker run --rm -v "$(Build.SourcesDirectory):/src" zricethezav/gitleaks:latest detect \
+      --source="/src" \
+      --no-git \
+      --verbose \
+      --exit-code=1 || EXITCODE=$?
+
+    if [ "${EXITCODE}" != "" ]; then
+      echo "⚠️ Gitleaks detected possible secrets."
+      exit 1
+    fi
+  displayName: 'GitLeaks - Scan Code for Secrets'
+  continueOnError: true
+
+- script: |
+    echo "Running Semgrep scan using Docker..."
+    set +e  # don't exit immediately on findings
+    docker run --rm -v "$(Build.SourcesDirectory):/src" returntocorp/semgrep semgrep scan --config /src/.semgrep.yml --json --output /src/semgrep_report.json --verbose /src/src
+    SEMGREP_EXIT=$?
+    echo ""
+    echo "========== SEMGREP FINDINGS =========="
+    if [ -s "$(Build.SourcesDirectory)/semgrep_report.json" ]; then
+      cat "$(Build.SourcesDirectory)/semgrep_report.json" | jq -r '
+        .results[]? |
+        "\(.check_id): [\(.extra.severity)] \(.path):\(.start.line) → \(.extra.message)"'
+    else
+      echo "No findings or empty report."
+    fi
+    echo "====================================="
+
+    # Fail only if ERROR-level findings exist
+    ERROR_COUNT=$(jq '[.results[] | select(.extra.severity == "ERROR")] | length' "$(Build.SourcesDirectory)/semgrep_report.json")
+    echo "❗ ERROR findings: ${ERROR_COUNT}"
+    if [ "$ERROR_COUNT" -gt 0 ]; then
+      echo "Semgrep detected ${ERROR_COUNT} ERROR-level issues."
+      exit 1
+    else
+      echo "✅ No ERROR-level findings detected."
+      exit 0
+    fi
+  displayName: "Run Semgrep (Docker + JSON)"
+  continueOnError: true
+
+- script: |
+    npm install
+    echo "setting version: $(semVersion)"
+    npm --no-git-tag-version version $(semVersion)
+    npm run build
+  displayName: 'npm install and build'
+
+- task: Npm@1
+  displayName: 'Publish $(semVersion)'
+  inputs:
+    command: 'publish'
+    verbose: true
+    publishRegistry: 'useFeed'
+    publishFeed: '70d8aa7b-e107-47de-86f2-0e3323e30cfa/44285fd6-bfe1-434d-91c8-adea596debbe'
+
+- script: |
+    npm run lint
+  displayName: 'npm lint'
+  continueOnError: true
+
+# npm audit will return error code 1 if any high+ vulnerabilities are found outside of dev modules.
+# Setting continueOnError sets the pipeline as partially failed.
+- script: |
+    echo "Showing NPM module tree"
+    npm ls --all
+    echo "Showing all outdated NPM modules"
+    npm outdated || true
+    echo "Showing NPM modules with security vulnerabilities"
+    npm audit --omit=dev --audit-level high
+  displayName: 'NPM Audit'
+  continueOnError: true
+
+- script: |
+    npx knip --no-exit-code
+  displayName: 'npx knip, to find unused files, dependencies and exports'
+  continueOnError: true
+
+# - script: |
+#     npm run coverage
+#   displayName: 'unit tests'
+#   continueOnError: true
+
+# - script: |
+#    npm run docs:generate
+#  displayName: 'generate docs'
+#  continueOnError: true
+
+- task: PublishTestResults@2
+  displayName: 'Publish Test Results '
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '$(Build.SourcesDirectory)/.test_results/test-results.xml'
+
+# - task: PublishCodeCoverageResults@2
+#   displayName: 'Publish code coverage summary'
+#   inputs:
+#     summaryFileLocation: '$(Build.SourcesDirectory)/.coverage/cobertura-coverage.xml'
+
+# - task: PublishPipelineArtifact@1
+#  displayName: 'Publish documentation'
+#  inputs:
+#    targetPath: '$(Build.SourcesDirectory)/docs'

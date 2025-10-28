@@ -1,6 +1,6 @@
 {
-  "name": "@auth0/mdl",
-  "version": "1.5.0",
+  "name": "@aq/mdl",
+  "version": "3.1.0",
   "description": "Parse and and validate MDOC CBOR encoded binaries according to ISO 18013-5.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/auth0-lab/mdl.git"
+    "url": "https://github.com/AffinitiQuest/mdl.git"
   },
   "keywords": [
     "auth0",
@@ -37,7 +37,8 @@
   },
   "contributors": [
     "José Romaniello (https://x.com/jfroma)",
-    "Sebastian Iacomuzzi (https://x.com/sebasiaco)"
+    "Sebastian Iacomuzzi (https://x.com/sebasiaco)",
+    "Warren Gallagher (https://github.com/warren-gallagher)"
   ],
   "files": [
     "lib/**/*"

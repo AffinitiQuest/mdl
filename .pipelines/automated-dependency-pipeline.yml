@@ -1,0 +1,30 @@
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '20.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install -g npm-check-updates
+    ncu --doctor -u
+    echo $?
+    echo "Manually running test"
+    npm run test
+    echo "Manually running lint"
+    npm run lint
+  displayName: 'Check and Update NPM Dependencies'
+
+- script: |
+    git status
+    #git config --global user.email "example@example.com"
+    #git config --global user.name  "Your Name"
+    #git add package.json
+    #git commit -m "chore: Update npm dependencies"
+    #git push -u origin HEAD:main
+  displayName: 'Pushing Latest Changes'

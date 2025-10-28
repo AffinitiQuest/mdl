@@ -1,0 +1,262 @@
+# ==========================================
+# Semgrep configuration for TypeScript projects
+# Security + SCA Best Practices (ISO 27001)
+# Compatible with Semgrep >=1.139
+# ==========================================
+
+rules:
+  # ----------------------------------------
+  # 🔐 Secure Coding Practices (TS/JS)
+  # ----------------------------------------
+  - id: typescript.no-eval
+    message: "Avoid using eval() — allows arbitrary code execution."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern: eval(...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A1:2021 - Injection
+      cwe: CWE-94
+
+  - id: typescript.no-function-constructor
+    message: "Avoid using the Function constructor (equivalent to eval)."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern: new Function(...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A1:2021 - Injection
+      cwe: CWE-94
+
+  - id: typescript.insecure-http
+    message: "Use HTTPS instead of HTTP for external requests."
+    severity: WARNING
+    languages: [typescript, javascript]
+    pattern: fetch("http://"+...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A3:2021 - Sensitive Data Exposure
+      cwe: CWE-319
+
+  - id: typescript.hardcoded-secret
+    message: "Potential hardcoded secret or API key — remove or use environment variables."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern-regex: '["''](AKIA|AIza|ghp_|ssh-|eyJ[a-zA-Z0-9_-]{10,}|secret|token|password)["'']'
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A2:2021 - Cryptographic Failures
+      cwe: CWE-798
+
+  - id: typescript.insecure-random
+    message: "Avoid Math.random() for security-sensitive values (use crypto.randomUUID() or crypto.getRandomValues)."
+    severity: WARNING
+    languages: [typescript, javascript]
+    pattern: Math.random(...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A5:2021 - Security Misconfiguration
+      cwe: CWE-330
+
+  - id: typescript.unsafe-json-parse
+    message: "Validate JSON input before parsing untrusted data."
+    severity: WARNING
+    languages: [typescript, javascript]
+    pattern: JSON.parse(...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A8:2021 - Software and Data Integrity Failures
+      cwe: CWE-502
+
+  - id: typescript.innerhtml-assignment
+    message: "Assigning untrusted data to innerHTML can lead to XSS — sanitize input first."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern: $OBJ.innerHTML = $VAL
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A7:2021 - Cross-site Scripting (XSS)
+      cwe: CWE-79
+
+  - id: typescript.disable-tls-verification
+    message: "Do not disable SSL/TLS certificate verification."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern-regex: 'rejectUnauthorized\s*:\s*false'
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A6:2021 - Security Misconfiguration
+      cwe: CWE-295
+
+  - id: typescript.exec-command
+    message: "Avoid executing shell commands from Node.js code without sanitizing input."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern-either:
+      - pattern: child_process.exec(...)
+      - pattern: child_process.execSync(...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A1:2021 - Injection
+      cwe: CWE-78
+
+  - id: typescript.log-sensitive
+    message: "Avoid logging secrets or sensitive data."
+    severity: WARNING
+    languages: [typescript, javascript]
+    pattern-either:
+      - pattern: console.log(..., "password", ...)
+      - pattern: console.log(..., "token", ...)
+      - pattern: console.log(..., "secret", ...)
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A9:2021 - Logging and Monitoring Failures
+      cwe: CWE-532
+
+  # ----------------------------------------
+  # 🧩 Software Composition Analysis (SCA)
+  # ----------------------------------------
+
+  # 1️⃣ Detect unpinned or floating versions (no strict semver)
+  - id: sca.unpinned-versions
+    message: "Dependency versions should be pinned for reproducible builds."
+    severity: WARNING
+    languages: [generic]
+    pattern-regex: '"[a-zA-Z0-9-_]+":\s*"[~^]?[0-9]+\.[0-9]+"'
+    paths:
+      include:
+        - package.json
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A6:2021 - Security Misconfiguration
+      cwe: CWE-494
+
+  # 2️⃣ Detect vulnerable packages (examples)
+  - id: sca.vulnerable-packages
+    message: "Detected use of a known vulnerable or deprecated package — verify it's patched or replaced."
+    severity: ERROR
+    languages: [generic]
+    pattern-either:
+      - pattern-regex: '"lodash"\s*:\s*".*4\.17\.1[0-9]"'
+      - pattern-regex: '"minimist"\s*:\s*".*1\.2\.2"'
+      - pattern-regex: '"serialize-javascript"\s*:\s*".*2\.[0-9]+\.[0-9]+"'
+    paths:
+      include:
+        - package.json
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      cwe: CWE-1104
+      owasp: A6:2021 - Security Misconfiguration
+
+  # 3️⃣ Detect untrusted package sources
+  - id: sca.untrusted-package-source
+    message: "Avoid installing dependencies directly from URLs or git repos — use trusted registries."
+    severity: ERROR
+    languages: [generic]
+    pattern-regex: 'git\+https?://|http://'
+    paths:
+      include:
+        - package.json
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A8:2021 - Software and Data Integrity Failures
+      cwe: CWE-494
+
+  # 4️⃣ Detect postinstall scripts
+  - id: sca.postinstall-script
+    message: "Avoid npm postinstall scripts unless absolutely required — they can execute arbitrary code."
+    severity: WARNING
+    languages: [generic]
+    pattern-regex: '"postinstall"\s*:\s*'
+    paths:
+      include:
+        - package.json
+      exclude:
+        - "**/*.spec.ts"
+        - "**/src/scripts/**"
+    metadata:
+      owasp: A8:2021 - Software and Data Integrity Failures
+      cwe: CWE-494
+
+  # 5️⃣ Weak crypto algorithms
+  - id: typescript.unsafe-crypto
+    message: "Avoid using weak cryptographic algorithms like MD5 or SHA1."
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern-either:
+      - pattern-regex: 'crypto\.createHash\(["'']md5["'']\)'
+      - pattern-regex: 'crypto\.createHash\(["'']sha1["'']\)'
+    paths:
+      exclude:
+          - "**/*.spec.ts"
+          - "**/src/scripts/**"
+    metadata:
+      owasp: A2:2021 - Cryptographic Failures
+      cwe: CWE-327
+
+  # ----------------------------------------
+  # 🧹 Hygiene / Maintainability
+  # ----------------------------------------
+  - id: typescript.console-debug
+    message: "Remove console.log/debug statements in production code."
+    severity: INFO
+    languages: [typescript, javascript]
+    pattern-either:
+      - pattern: console.log(...)
+      - pattern: console.debug(...)
+    paths:
+      exclude:
+          - "**/*.spec.ts"
+          - "**/src/scripts/**"
+    metadata:
+      cwe: CWE-489
+      category: style
+
+  - id: typescript.todo-comments
+    message: "TODO/FIXME comments should be resolved before release."
+    severity: INFO
+    languages: [typescript, javascript]
+    pattern-regex: '(TODO|FIXME)'
+    paths:
+      exclude:
+          - "**/*.spec.ts"
+          - "**/src/scripts/**"
+    metadata:
+      category: maintainability
+
