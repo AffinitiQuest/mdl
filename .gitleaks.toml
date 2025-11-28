@@ -1,0 +1,85 @@
+title = "Gitleaks configuration for TypeScript + Azure DevOps"
+description = "Detects secrets and credentials in code and pipelines"
+version = 2
+
+# ==== Global Options ====
+[extend]
+useDefault = true # keep the default built-in Gitleaks rules
+# You can disable useDefault = false if you want to define only your own rules.
+
+[allowlist]
+# Ignore common non-sensitive paths and files
+paths = [
+  '''node_modules/''',
+  '''coverage/''',
+  '''dist/''',
+  '''\.*/demo/.*''',
+  '''build/''',
+  '''.vscode/''',
+  '''.idea/''',
+  '''.env.example''',
+  '''example.env''',
+  '''tests?/.*''',
+  '''.*/_unitTests/.*''',
+  '''__mocks__/.*''',
+  '''package(-lock)?\.json''',
+  '''yarn\.lock''',
+  '''pnpm-lock\.yaml''',
+  '''\.md$''',
+  '''\.env\..*''',
+  '''\.*/__tests__/.*'''
+]
+
+# Allow certain environment variables or build placeholders used by Azure DevOps
+regexes = [
+  '''\$\((Build\..+|System\..+|Release\..+|Pipeline\..+)\)''', # Azure DevOps variables like $(Build.BuildId)
+  '''AZURE_DEVOPS_EXT_PAT''',
+  '''FAKE_API_KEY|FAKE_SECRET|DUMMY_TOKEN''', # fake secrets often used in tests
+]
+
+# ==== Custom rules (optional) ====
+
+# Detect accidental Azure DevOps or PAT tokens (if missed by defaults)
+[[rules]]
+id = "azure-devops-pat"
+description = "Azure DevOps Personal Access Token"
+regex = '''azdo[a-z0-9]{52}'''
+secretGroup = 0
+entropy = 3.5
+tags = ["azure", "token", "credentials"]
+
+# Detect npm auth tokens accidentally committed to .npmrc
+[[rules]]
+id = "npm-auth-token"
+description = "NPM Auth Token"
+regex = '''(_authToken\s*=\s*[A-Za-z0-9-_]{20,})'''
+secretGroup = 1
+entropy = 3.0
+tags = ["npm", "token", "registry"]
+
+# Detect generic private keys in code
+[[rules]]
+id = "private-key-block"
+description = "Private key block (RSA/DSA/EC)"
+regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP|PRIVATE) KEY-----'''
+secretGroup = 0
+tags = ["key", "private", "cryptography"]
+
+# Detect GitHub or Azure app secrets
+[[rules]]
+id = "github-or-azure-app-secret"
+description = "GitHub or Azure app client secret"
+regex = '''(?i)(ghp|gho|ghu|ghs|ghr)_[0-9a-zA-Z]{36,255}'''
+secretGroup = 0
+tags = ["github", "azure", "app", "secret"]
+
+# Detect common JWT tokens in test data
+[[rules]]
+id = "jwt-token"
+description = "JSON Web Token (JWT)"
+regex = '''eyJ[A-Za-z0-9_-]+?\.[A-Za-z0-9._-]+?\.[A-Za-z0-9._-]+'''
+entropy = 3.0
+tags = ["jwt", "auth"]
+
+# ==== End of rules ====
+
