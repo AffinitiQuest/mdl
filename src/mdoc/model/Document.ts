@@ -259,8 +259,12 @@ export class Document {
       kid = signer.getKeyId();
     }
 
+    // TODO: @Warren - we removed the kid from the unprotectedHeader see devops bug #849
+    // const unprotectedHeader: UnprotectedHeaders = {
+    //   kid,
+    //   x5chain: issuerCertificateChain.length === 1 ? issuerCertificateChain[0] : issuerCertificateChain,
+    // };
     const unprotectedHeader: UnprotectedHeaders = {
-      kid,
       x5chain: issuerCertificateChain.length === 1 ? issuerCertificateChain[0] : issuerCertificateChain,
     };
 
